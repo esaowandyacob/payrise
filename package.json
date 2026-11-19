@@ -1,0 +1,57 @@
+{
+  "name": "payrise",
+  "version": "0.1.0",
+  "description": "Payrise 薪光 · local-first macOS real-time earnings companion",
+  "private": true,
+  "type": "module",
+  "main": "electron/main.cjs",
+  "author": "esaowandyacob",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/esaowandyacob/payrise.git"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "test": "node --test test/*.test.js",
+    "check": "node --check electron/main.cjs && node --check electron/preload.cjs && node --check src/core/earnings.js && node --check src/renderer/app.js",
+    "smoke": "node scripts/smoke.cjs",
+    "pack:mac": "electron-builder --mac --dir",
+    "dist:mac": "electron-builder --mac dmg zip --arm64",
+    "dist:mac:intel": "electron-builder --mac dmg zip --x64"
+  },
+  "build": {
+    "appId": "io.github.esaowandyacob.payrise",
+    "productName": "Payrise",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**",
+      "src/**",
+      "assets/**",
+      "package.json",
+      "LICENSE"
+    ],
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null,
+      "icon": "assets/icon.png"
+    }
+  },
+  "devDependencies": {
+    "electron": "45.4.1",
+    "electron-builder": "26.18.0"
+  },
+  "overrides": {
+    "minimatch@>=7.0.0 <11.0.1": "11.0.1"
+  }
+}

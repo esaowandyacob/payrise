@@ -1,0 +1,21 @@
+/* Claude 主题接入点：保留变量名即可独立替换色彩与质感。 */
+:root,[data-theme="dawn"] {
+  color-scheme: light;
+  --bg:#f5f3ed;--surface:#fffefa;--ink:#223c35;--muted:#6f7d75;
+  --accent:#377858;--accent-ink:#fff;--line:#dfe5dc;
+  --hero:#e5eddf;--hero-ink:#214531;--shadow:0 12px 40px #26473108;
+  --radius:22px;--font:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
+  --number-font:"SF Mono",Menlo,monospace;
+}
+[data-theme="midnight"] {
+  color-scheme:dark;
+  --bg:#121b24;--surface:#1b2733;--ink:#e8f0f2;--muted:#9caeba;
+  --accent:#8ad4b5;--accent-ink:#122c22;--line:#314251;
+  --hero:#223d40;--hero-ink:#c2f3dc;--shadow:0 12px 40px #0002;
+}
+[data-theme="paper"] {
+  color-scheme:light;
+  --bg:#f4eee5;--surface:#fff9f1;--ink:#4d392d;--muted:#907865;
+  --accent:#aa633f;--accent-ink:#fff;--line:#e8d7c5;
+  --hero:#f2ddc6;--hero-ink:#76492d;--shadow:0 12px 40px #65452008;
+}

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Payrise · 薪光</title>
+  <link rel="stylesheet" href="themes.css"><link rel="stylesheet" href="app.css">
+</head>
+<body data-theme="dawn" data-mode="dashboard">
+  <header class="titlebar"><span class="brand">◒ Payrise <small>薪光</small></span><span class="local-badge">仅保存在这台 Mac</span></header>
+  <main>
+    <section class="dashboard">
+      <div class="heading"><div><p class="eyebrow">MAKE YOUR TIME VISIBLE</p><h1>每一秒，都有收获。</h1><p class="subtle">给认真生活的自己，一点看得见的鼓励。</p></div><div class="actions"><button id="privacy" type="button">隐藏金额</button><button id="widget" type="button">悬浮窗</button></div></div>
+      <p id="warning" class="warning" hidden></p>
+      <section class="hero card" aria-label="收入看板">
+        <div class="hero-top"><span id="day-label">本班次已赚</span><span id="status" class="status">准备中</span></div>
+        <div id="income" class="income">—</div>
+        <div class="hero-bottom"><span id="rate">每秒 —</span><span id="countdown">—</span></div>
+        <progress id="shift-progress" max="1" value="0" aria-label="班次计薪进度"></progress>
+        <p id="shift-note" class="subtle">收入按排班和系统时间估算。</p>
+      </section>
+      <div class="stats"><section class="card"><span class="subtle">本月累计 · 估算</span><strong id="month">—</strong><small id="month-note">—</small></section><section class="card"><span class="subtle">本班次预计</span><strong id="target">—</strong><small id="days">—</small></section></div>
+      <div class="extras"><section class="card goal"><div class="section-title"><h2 id="goal-name">给自己一份奖励</h2><span>愿望进度</span></div><strong id="goal-value">—</strong><progress id="goal-progress" max="1" value="0" aria-label="愿望进度"></progress><small>初始积蓄 + 目标开始日起估算收入；不代表实际存款。</small></section><section class="card rest"><div class="section-title"><h2>给自己一杯咖啡</h2><span>手动休息计时</span></div><strong id="rest-value">—</strong><small id="rest-time">尚未开始</small><button id="rest" type="button">开始休息</button></section></div>
+      <p class="footnote">这是时间价值估算，不是工资条。未计算税费、奖金与加班费。配置调整会重算历史估算值。</p>
+      <details class="card settings" id="settings"><summary>薪资、作息与外观设置 <span>⌘</span></summary>
+        <form id="settings-form">
+          <fieldset><legend>收入与排班</legend><div class="fields">
+            <label>薪资金额<input name="salary" type="number" min="0.01" max="100000000" step="0.01" required></label>
+            <label>计薪方式<select name="salaryMode"><option value="monthly">月薪</option><option value="daily">日薪</option><option value="hourly">时薪</option></select></label>
+            <label>货币<select name="currency"><option>CNY</option><option>USD</option><option>EUR</option><option>JPY</option><option>HKD</option></select></label>
+            <label>月薪折算<select name="divisor"><option value="calendar">当月排班工作日</option><option value="fixed">固定月计薪天数</option></select></label>
+            <label>固定月计薪天数<input name="fixedDays" type="number" min="1" max="31" step="0.01" required></label>
+            <label>上班时间<input name="start" type="time" required></label><label>下班时间<input name="end" type="time" required></label>
+            <label class="check"><input name="breakEnabled" type="checkbox">扣除无薪休息</label>
+            <label>休息开始<input name="breakStart" type="time" required></label><label>休息结束<input name="breakEnd" type="time" required></label>
+          </div><div class="weekdays" role="group" aria-label="每周工作日"><label><input name="weekdays" type="checkbox" value="1">周一</label><label><input name="weekdays" type="checkbox" value="2">周二</label><label><input name="weekdays" type="checkbox" value="3">周三</label><label><input name="weekdays" type="checkbox" value="4">周四</label><label><input name="weekdays" type="checkbox" value="5">周五</label><label><input name="weekdays" type="checkbox" value="6">周六</label><label><input name="weekdays" type="checkbox" value="0">周日</label></div>
+          <label>手动调休（每行一项：2026-11-21=work 或 2026-11-23=off）<textarea name="overrides" rows="3" placeholder="法定节假日与调休需手动填写，不联网获取"></textarea></label>
+          <p class="subtle">下班早于上班视为跨午夜班次，归属上班日期。固定天数模式的月累计不保证等于月薪。</p></fieldset>
+          <fieldset><legend>愿望清单</legend><div class="fields"><label>目标名称<input name="goalName" maxlength="60" required></label><label>目标金额<input name="goalAmount" type="number" min="0.01" max="100000000" step="0.01" required></label><label>初始积蓄<input name="goalSaved" type="number" min="0" max="100000000" step="0.01" required></label><label>开始日期<input name="goalStart" type="date" required></label></div></fieldset>
+          <fieldset><legend>外观</legend><div class="fields"><label>基础主题<select name="theme"><option value="dawn">晨光 · Dawn</option><option value="midnight">夜航 · Midnight</option><option value="paper">纸笺 · Paper</option></select></label><label>悬浮窗透明度<input name="opacity" type="range" min="0.5" max="1" step="0.05"></label><label class="check"><input name="pinned" type="checkbox">悬浮窗始终置顶</label></div><p class="subtle">现有主题用于验证主题接口；最终视觉方案可独立替换。</p></fieldset>
+          <div class="form-actions"><p id="form-message" role="status"></p><button type="button" id="cancel">恢复已保存设置</button><button class="primary" type="submit">保存设置</button></div>
+        </form>
+      </details>
+    </section>
+    <section class="widget" aria-label="迷你收入窗口"><div class="widget-header"><span>◒ Payrise</span><button id="widget-open" aria-label="打开主窗口">↗</button><button id="widget-hide" aria-label="隐藏悬浮窗">×</button></div><span id="widget-status" class="subtle">本班次已赚</span><strong id="widget-income">—</strong><div class="widget-footer"><span id="widget-rate">—</span><button id="widget-privacy" aria-label="切换隐私模式">◉</button></div></section>
+  </main>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
