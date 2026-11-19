@@ -8,5 +8,5 @@
 - 不控制 Edge；Chrome 页面调试优先使用可用的 chromeDevtools MCP。
 - 根据上传资源定制主题时，先阅读 `.agents/skills/payrise-theme/SKILL.md`，按其中流程接入、截图验收。
 - 加班账本只能通过专用接口修改，保持费率快照与隐私遮罩。
-- UI 设计以 `docs/CLAUDE_UI_BRIEF.md` 为接口约定。
+- UI 设计以 `docs/THEMES.md` 为接口约定。
 - 仅原创实现或授权兼容的代码可纳入 MIT 仓库。

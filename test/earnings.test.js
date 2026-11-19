@@ -81,9 +81,14 @@ test('主题迁移保留工资与排班，新主题不改变计薪结果', () =>
   }
 });
 
-test('哆啦A梦主题保持计薪快照一致', () => {
-  const now = new Date('2026-11-19T19:00:00');
-  const base = config();
-  assert.equal(config({theme:'doraemon'}).theme,'doraemon');
-  assert.deepEqual(snapshot({...base,theme:'doraemon'},now),snapshot(base,now));
+test('移除的主题迁移到窗光，保留薪资、隐私与加班账本', () => {
+  const saved = config({theme:'doraemon',salary:12345,privacy:true,overtimeRecords:[{
+    id:'migration-record',start:new Date('2026-11-19T18:00:00').getTime(),
+    end:new Date('2026-11-19T19:00:00').getTime(),limit:new Date('2026-11-20T09:00:00').getTime(),
+    day:'2026-11-19',rate:80,currency:'CNY',mode:'hourly'
+  }]});
+  assert.equal(saved.theme,'lumen'); assert.equal(saved.salary,12345); assert.equal(saved.privacy,true);
+  assert.equal(saved.overtimeRecords.length,1); assert.equal(saved.overtimeRecords[0].rate,80);
+  const now=new Date('2026-11-19T20:00:00');
+  assert.deepEqual(snapshot(saved,now),snapshot({...saved,theme:'folio'},now));
 });

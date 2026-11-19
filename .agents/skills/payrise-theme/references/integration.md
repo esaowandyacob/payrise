@@ -14,7 +14,7 @@
 | `electron/main.cjs` | `runSmoke` 内主题循环：真实控件同步与截图循环，新增主题须加入两处 |
 | `test/earnings.test.js` | 保持主题迁移测试，新增主题与基础主题快照一致性断言 |
 | `assets/themes/<id>/` | 本地资源与 `SOURCES.md` |
-| `docs/CLAUDE_UI_BRIEF.md`、`README.md` | 更新新增主题说明和示例图 |
+| `docs/THEMES.md`、`README.md` | 更新新增主题说明和示例图 |
 
 ## 变量
 

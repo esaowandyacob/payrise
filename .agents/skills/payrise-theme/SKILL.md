@@ -9,7 +9,7 @@ description: 根据用户上传的截图、设计稿、图片、图标、字体�
 
 ## 1. 读契约与素材
 
-先读根目录 `AGENTS.md`、`docs/CLAUDE_UI_BRIEF.md`、本技能的 [接口与验收表](references/integration.md)，再检查 `git status` 和当前 renderer/core 源码。使用 conda `payrise` 环境运行检查。保留无关改动，修改已有文件前备份到被 Git 忽略的 `.tmp/`。
+先读根目录 `AGENTS.md`、`docs/THEMES.md`、本技能的 [接口与验收表](references/integration.md)，再检查 `git status` 和当前 renderer/core 源码。使用 conda `payrise` 环境运行检查。保留无关改动，修改已有文件前备份到被 Git 忽略的 `.tmp/`。
 
 查看用户实际上传的资源，记录格式、像素尺寸、比例、透明通道、主色、字体、留白、圆角与布局特点。不要声称看过不可读取的文件。素材不足时采用系统字体和原创 CSS 图形，说明假设；只有影响主要方向的缺失信息才询问。
 

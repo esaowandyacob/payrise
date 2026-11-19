@@ -21,12 +21,3 @@
   --accent:#e4b56a;--accent-ink:#131210;--line:rgba(244,239,230,.18);
   --hero-ink:#f4efe6;--button:transparent;--radius:20px;--widget-radius:20px;
 }
-/* 哆啦A梦：蓝天、白色口袋、红项圈和铃铛黄，资源完全离线。 */
-[data-theme="doraemon"] {
-  color-scheme:light;
-  --bg:#edf8fe;--surface:#fff;--ink:#193e57;--muted:#506b7d;
-  --accent:#086c9d;--accent-ink:#fff;--line:#c4e0ee;
-  --hero:#fff;--hero-ink:#193e57;--button:#fff;--radius:24px;
-  --font:-apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;
-  --number-font:ui-rounded,"SF Pro Rounded",-apple-system,BlinkMacSystemFont,sans-serif;
-}

@@ -166,7 +166,7 @@ async function runSmoke() {
   const widgetMode = await widget.webContents.executeJavaScript(`document.body.dataset.mode`);
   if (!result.rendered || !result.sandboxed || !result.saved || !result.rejected || result.theme !== 'wick' || !result.privacy || widgetMode !== 'widget') throw new Error('Electron smoke failed');
   // 使用真实主题控件检查保存、双窗同步及未提交表单不被主题切换覆盖。
-  for (const theme of ['lumen', 'folio', 'wick', 'doraemon']) {
+  for (const theme of ['lumen', 'folio', 'wick']) {
     await dashboard.webContents.executeJavaScript(`(() => {
       document.querySelector('[name="salary"]').value = '23456';
       const picker = document.querySelector('#quick-theme');
@@ -243,7 +243,15 @@ async function runSmoke() {
   if (process.env.PAYRISE_SMOKE_OUTPUT) {
     clearInterval(heartbeat);
     fs.mkdirSync(process.env.PAYRISE_SMOKE_OUTPUT, { recursive: true });
-    for (const theme of ['lumen', 'folio', 'wick', 'doraemon']) {
+    for (const theme of ['lumen', 'folio', 'wick']) {
+      // 导出正常工作场景，宣传素材使用隔离配置和固定示例时钟。
+      const regularSettings = core.validateSettings({...core.DEFAULT_SETTINGS,theme,goalName:'给自己一趟周末旅行',goalStart:'2026-11-18'});
+      const regular = {settings:regularSettings,snapshot:core.snapshot(regularSettings,new Date('2026-11-19T14:16:30')),warning:''};
+      for (const window of [dashboard,widget]) window.webContents.send('state:update',regular);
+      await dashboard.webContents.executeJavaScript(`document.querySelector('#overtime-message').textContent=''`);
+      await Promise.all([dashboard,widget].map(window=>window.webContents.executeJavaScript(`new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)))`)));
+      fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT,`${theme}-day.png`),(await dashboard.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT,`${theme}-day-widget.png`),(await widget.webContents.capturePage()).toPNG());
       const past = core.changeOvertime({...settings,overtimeRecords:[]},'add',{id:'history-demo',start:new Date('2026-11-18T18:00:00').getTime(),end:new Date('2026-11-18T20:00:00').getTime(),mode:'unpaid'},new Date('2026-11-19T18:00:00').getTime());
       const fixture = core.changeOvertime({...past,overtimeMode:'hourly'},'start',{id:'demo'},new Date('2026-11-19T18:00:00').getTime());
       persist({ ...fixture, theme, privacy: false, goalStart: '2026-11-18' });
@@ -253,7 +261,6 @@ async function runSmoke() {
       await Promise.all([dashboard, widget].map(window => window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)));
       const renderedTheme = await dashboard.webContents.executeJavaScript(`document.body.dataset.theme`);
       if (renderedTheme !== theme) throw new Error('Theme paint mismatch');
-      if (theme === 'doraemon' && !await dashboard.webContents.executeJavaScript(`document.querySelector('.dora-art img').complete && document.querySelector('.dora-art img').naturalWidth > 0`)) throw new Error('角色插画未加载');
       fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}.png`), (await dashboard.webContents.capturePage()).toPNG());
       fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}-widget.png`), (await widget.webContents.capturePage()).toPNG());
       await dashboard.webContents.executeJavaScript(`(() => {document.querySelector('#overtime-details').open=true;document.querySelector('#overtime-details').scrollIntoView();})()`);
@@ -285,6 +292,7 @@ async function runSmoke() {
     const widgetMasked = await widget.webContents.executeJavaScript(`document.querySelector('#widget-income').textContent === '••••'`);
     if (!masked || !widgetMasked) throw new Error('Privacy render failed');
     fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, 'privacy.png'), (await dashboard.webContents.capturePage()).toPNG());
+    fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, 'privacy-widget.png'), (await widget.webContents.capturePage()).toPNG());
   }
   console.log('PAYRISE_SMOKE_OK ' + JSON.stringify({ ...result, widgetMode, overtime: overtimeOK.ok }));
 }

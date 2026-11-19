@@ -8,14 +8,12 @@
   <link rel="stylesheet" href="themes.css"><link rel="stylesheet" href="app.css">
 </head>
 <body data-theme="lumen" data-mode="dashboard">
-  <header class="titlebar"><span class="brand"><img class="brand-icon" src="../../assets/icon.png" alt="">Payrise <small>薪光</small></span><span class="local-badge">仅保存在这台 Mac</span><div class="actions"><label class="theme-picker"><span class="sr-only">切换主题</span><select id="quick-theme"><option value="lumen">窗光</option><option value="folio">纸页</option><option value="wick">夜灯</option><option value="doraemon">哆啦A梦</option></select></label><button id="privacy" type="button">隐藏金额</button><button id="widget" type="button">悬浮窗</button></div></header>
+  <header class="titlebar"><span class="brand"><img class="brand-icon" src="../../assets/icon.png" alt="">Payrise <small>薪光</small></span><span class="local-badge">仅保存在这台 Mac</span><div class="actions"><label class="theme-picker"><span class="sr-only">切换主题</span><select id="quick-theme"><option value="lumen">窗光</option><option value="folio">纸页</option><option value="wick">夜灯</option></select></label><button id="privacy" type="button">隐藏金额</button><button id="widget" type="button">悬浮窗</button></div></header>
   <main>
     <section class="dashboard">
       <div class="heading"><p class="eyebrow">PAYRISE / DAILY JOURNAL</p><h1>每一秒，都有收获。</h1><p class="subtle">给认真生活的自己，一点看得见的鼓励。</p></div>
-      <div class="dora-intro"><span class="dora-kicker">PAYRISE × 未来的每一天</span><h1>把今天的努力，<br>装进口袋里。</h1><p>一点点积累，也能靠近大大的愿望。</p><span class="dora-tag">哆啦A梦 · 四次元口袋</span></div>
       <p id="warning" role="status" class="warning" hidden></p>
       <section class="hero card" aria-label="收入看板">
-        <div class="dora-art" aria-hidden="true"><img src="../../assets/themes/doraemon/companion.svg" alt=""><span>今天也陪你，一起加油。</span></div>
         <div class="hero-top"><span id="day-label">本班次已赚</span><span id="status" class="status">准备中</span></div>
         <div id="income" class="income">—</div>
         <div class="hero-bottom"><span id="rate">每秒 —</span><span id="countdown">—</span></div>
@@ -65,7 +63,7 @@
             <label>正常时薪倍率<input name="overtimeMultiplier" type="number" min="0.01" max="100" step="any" required></label>
           </div><p class="subtle">先保存，再开始计时。无偿加班仅累计时间；倍率由你自行设定。已有记录时不能切换币种。</p></fieldset>
           <fieldset><legend>愿望清单</legend><div class="fields"><label>目标名称<input name="goalName" maxlength="60" required></label><label>目标金额<input name="goalAmount" type="number" min="0.01" max="100000000" step="0.01" required></label><label>初始积蓄<input name="goalSaved" type="number" min="0" max="100000000" step="0.01" required></label><label>开始日期<input name="goalStart" type="date" required></label></div></fieldset>
-          <fieldset><legend>外观</legend><div class="fields"><label>界面主题<select name="theme"><option value="lumen">窗光 · Lumen</option><option value="folio">纸页 · Folio</option><option value="wick">夜灯 · Wick</option><option value="doraemon">哆啦A梦 · 四次元口袋</option></select></label><label>悬浮窗透明度<input name="opacity" type="range" min="0.5" max="1" step="0.05"></label><label class="check"><input name="pinned" type="checkbox">悬浮窗始终置顶</label></div><p class="subtle">四套主题同步应用到主窗口与悬浮窗。顶部主题选择立即保存，其余设置按保存按钮生效。</p></fieldset>
+          <fieldset><legend>外观</legend><div class="fields"><label>界面主题<select name="theme"><option value="lumen">窗光 · Lumen</option><option value="folio">纸页 · Folio</option><option value="wick">夜灯 · Wick</option></select></label><label>悬浮窗透明度<input name="opacity" type="range" min="0.5" max="1" step="0.05"></label><label class="check"><input name="pinned" type="checkbox">悬浮窗始终置顶</label></div><p class="subtle">三套主题同步应用到主窗口与悬浮窗。顶部主题选择立即保存，其余设置按保存按钮生效。</p></fieldset>
           <div class="form-actions"><p id="form-message" role="status"></p><button type="button" id="cancel">恢复已保存设置</button><button class="primary" type="submit">保存设置</button></div>
         </form>
       </details>

@@ -10,3 +10,6 @@ playwright-report/
 test-results/
 
 .idea/
+
+# 本地宣传素材与文案，不提交到仓库
+promo/
