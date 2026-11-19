@@ -19,12 +19,27 @@ function duration(seconds) {
   return `${Math.floor(total / 3600)}:${String(Math.floor(total % 3600 / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
+// 按可用宽度缩小金额字号，保留完整数字，避免小窗大金额被省略。
+function fitAmounts() {
+  for (const id of ['income', 'widget-income']) {
+    const element = document.getElementById(id);
+    if (!element.clientWidth) continue;
+    element.style.removeProperty('font-size');
+    const base = parseFloat(getComputedStyle(element).fontSize);
+    if (element.scrollWidth > element.clientWidth) element.style.fontSize = `${Math.max(12, Math.floor(base * element.clientWidth / element.scrollWidth) - 1)}px`;
+  }
+}
+
 // 把主进程快照渲染到两个视图，主题仅改变设计变量。
 function render(next) {
+  const previousTheme = current?.settings.theme;
   current = next;
   const s = next.settings, v = next.snapshot;
   document.body.dataset.theme = s.theme;
   document.body.dataset.private = String(s.privacy);
+  document.body.dataset.status = v.status;
+  document.getElementById('quick-theme').value = s.theme;
+  if (previousTheme !== s.theme) form.elements.theme.value = s.theme;
   text('income', money(v.today, 4)); text('widget-income', money(v.today, 4));
   text('status', statuses[v.status]); text('widget-status', statuses[v.status]);
   text('rate', `当前每秒 ${money(v.activeRate, 4)} · 计薪时 ${money(v.perSecond, 4)}/秒`);
@@ -33,6 +48,7 @@ function render(next) {
   text('day-label', `班次 ${v.day} · 已赚`);
   text('shift-note', '按排班估算；打开应用前的计薪时间也已计入。');
   document.getElementById('shift-progress').value = v.progress;
+  document.getElementById('widget-progress').value = v.progress;
   text('month', money(v.monthEarned)); text('target', money(v.dailyTarget));
   text('month-note', `${v.month} · 按班次起始日期归属`); text('days', `当月排班 ${v.workdays} 天`);
   text('goal-name', s.goalName || '给自己一份奖励'); text('goal-value', `${money(v.goalEarned)} / ${money(s.goalAmount)}`);
@@ -40,9 +56,26 @@ function render(next) {
   text('rest-value', money(v.restEarned, 4)); text('rest-time', `${duration(v.restSeconds)} · 仅统计计薪区间内收入`);
   text('rest', s.restStart !== null && s.restEnd === null ? '结束休息' : '开始新一次休息');
   text('privacy', s.privacy ? '显示金额' : '隐藏金额');
+  text('widget-privacy', s.privacy ? '显示' : '隐藏');
+  document.getElementById('widget-privacy').setAttribute('aria-label', s.privacy ? '显示金额' : '隐藏金额');
   text('warning', next.warning); document.getElementById('warning').hidden = !next.warning;
   // 隐私开启时同时关闭并隐藏含薪资输入的设置区。
   document.getElementById('settings').hidden = s.privacy;
+  requestAnimationFrame(fitAmounts);
+}
+
+// 顶部切换仅保存主题，其余未提交的表单输入保持原样。
+async function changeTheme(event) {
+  const picker = event.target;
+  picker.disabled = true;
+  try {
+    const result = await window.payrise.saveSettings({ ...current.settings, theme: picker.value });
+    if (!result.ok) throw new Error(result.error);
+    render(result.state);
+  } catch (error) {
+    picker.value = current.settings.theme;
+    text('warning', error.message); document.getElementById('warning').hidden = false;
+  } finally { picker.disabled = false; }
 }
 
 // 仅初始化或保存完成后填充表单，定时更新不覆盖正在输入的内容。
@@ -92,6 +125,8 @@ async function act(action) {
 }
 
 form.addEventListener('submit', save);
+document.getElementById('quick-theme').addEventListener('change', changeTheme);
+window.addEventListener('resize', fitAmounts);
 document.getElementById('cancel').addEventListener('click', () => { fillForm(); text('form-message', '已恢复保存的设置'); });
 for (const [id, action] of Object.entries({ privacy: 'privacy', widget: 'widget', rest: 'rest', 'widget-open': 'dashboard', 'widget-hide': 'widget', 'widget-privacy': 'privacy' })) document.getElementById(id).addEventListener('click', () => act(action));
 if (window.payrise) {

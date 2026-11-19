@@ -1,21 +1,23 @@
-/* Claude 主题接入点：保留变量名即可独立替换色彩与质感。 */
-:root,[data-theme="dawn"] {
-  color-scheme: light;
-  --bg:#f5f3ed;--surface:#fffefa;--ink:#223c35;--muted:#6f7d75;
-  --accent:#377858;--accent-ink:#fff;--line:#dfe5dc;
-  --hero:#e5eddf;--hero-ink:#214531;--shadow:0 12px 40px #26473108;
-  --radius:22px;--font:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;
-  --number-font:"SF Mono",Menlo,monospace;
-}
-[data-theme="midnight"] {
-  color-scheme:dark;
-  --bg:#121b24;--surface:#1b2733;--ink:#e8f0f2;--muted:#9caeba;
-  --accent:#8ad4b5;--accent-ink:#122c22;--line:#314251;
-  --hero:#223d40;--hero-ink:#c2f3dc;--shadow:0 12px 40px #0002;
-}
-[data-theme="paper"] {
+/* 三套主题沿用本地设计稿；布局变体在 app.css 中，计薪逻辑不在主题层。 */
+:root,[data-theme="lumen"] {
   color-scheme:light;
-  --bg:#f4eee5;--surface:#fff9f1;--ink:#4d392d;--muted:#907865;
-  --accent:#aa633f;--accent-ink:#fff;--line:#e8d7c5;
-  --hero:#f2ddc6;--hero-ink:#76492d;--shadow:0 12px 40px #65452008;
+  --bg:#e9e7e2;--surface:#f4f2ed;--ink:#1c1c1a;--muted:#4e4c46;
+  --accent:#1e6a4f;--accent-ink:#fff;--line:rgba(28,28,26,.16);
+  --hero:transparent;--hero-ink:var(--ink);--shadow:none;--radius:12px;
+  --button:rgba(255,255,255,.66);--widget-radius:16px;
+  --font:-apple-system,BlinkMacSystemFont,"PingFang SC","Helvetica Neue",sans-serif;
+  --number-font:ui-monospace,"SF Mono",Menlo,monospace;
+}
+[data-theme="folio"] {
+  color-scheme:light;
+  --bg:#e4d8c6;--surface:#fbf6ee;--ink:#241c16;--muted:#5c5145;
+  --accent:#7a3426;--accent-ink:#fff;--line:rgba(36,28,22,.18);
+  --hero-ink:#241c16;--button:transparent;--radius:2px;--widget-radius:2px;
+  --font:"Iowan Old Style","Songti SC",Palatino,Georgia,serif;
+}
+[data-theme="wick"] {
+  color-scheme:dark;
+  --bg:#131210;--surface:#1b1a17;--ink:#f4efe6;--muted:#b7b1a6;
+  --accent:#e4b56a;--accent-ink:#131210;--line:rgba(244,239,230,.18);
+  --hero-ink:#f4efe6;--button:transparent;--radius:20px;--widget-radius:20px;
 }

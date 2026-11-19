@@ -2,7 +2,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
   version: 1, salary: 12000, salaryMode: 'monthly', currency: 'CNY',
   start: '09:00', end: '18:00', breakEnabled: true, breakStart: '12:00', breakEnd: '13:00',
   weekdays: [1, 2, 3, 4, 5], overrides: {}, divisor: 'calendar', fixedDays: 21.75,
-  theme: 'dawn', privacy: false, pinned: true, opacity: 1,
+  theme: 'lumen', privacy: false, pinned: true, opacity: 1,
   goalName: '给自己一份奖励', goalAmount: 3000, goalSaved: 0,
   goalStart: '', restStart: null, restEnd: null
 });
@@ -40,7 +40,9 @@ export function validateSettings(input) {
   if (!['monthly', 'daily', 'hourly'].includes(s.salaryMode)) throw new Error('计薪方式无效');
   if (!['CNY', 'USD', 'EUR', 'JPY', 'HKD'].includes(s.currency)) throw new Error('货币无效');
   if (!['calendar', 'fixed'].includes(s.divisor)) throw new Error('折算方式无效');
-  if (!['dawn', 'midnight', 'paper'].includes(s.theme)) throw new Error('主题无效');
+  // 兼容首版主题名称，迁移只改变主题标识，不改变薪资或排班。
+  s.theme = ({ dawn: 'lumen', midnight: 'wick', paper: 'folio' })[s.theme] ?? s.theme;
+  if (!['lumen', 'folio', 'wick'].includes(s.theme)) throw new Error('主题无效');
   for (const key of ['breakEnabled', 'privacy', 'pinned']) if (typeof s[key] !== 'boolean') throw new Error(`${key} 应为布尔值`);
   if (!Array.isArray(s.weekdays) || !s.weekdays.length || s.weekdays.some(n => !Number.isInteger(n) || n < 0 || n > 6)) throw new Error('至少选择一个工作日');
   s.weekdays = [...new Set(s.weekdays)].sort();

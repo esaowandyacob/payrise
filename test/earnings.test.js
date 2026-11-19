@@ -69,3 +69,14 @@ test('夏令时跳过一小时：时薪按实际时长，日薪仍按班次封�
     close(shiftEarnings(day, config({...s,salaryMode:'daily',salary:800}), -Infinity, Infinity).earned, 800);
   } finally { process.env.TZ = 'Asia/Shanghai'; }
 });
+
+test('主题迁移保留工资与排班，新主题不改变计薪结果', () => {
+  const now = new Date('2026-11-19T14:00:00');
+  const base = snapshot(config(), now);
+  for (const [oldTheme, theme] of [['dawn','lumen'],['paper','folio'],['midnight','wick']]) {
+    const migrated = config({theme:oldTheme});
+    assert.equal(migrated.theme, theme);
+    assert.deepEqual(snapshot(migrated, now), base);
+    assert.equal(config({theme}).theme, theme);
+  }
+});

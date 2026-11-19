@@ -50,7 +50,7 @@ function createWindow(mode) {
     title: floating ? 'Payrise · 悬浮窗' : 'Payrise · 薪光',
     backgroundColor: '#f5f3ed', show: false,
     alwaysOnTop: floating && settings.pinned, opacity: floating ? settings.opacity : 1,
-    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true }
+    webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true, webSecurity: true, backgroundThrottling: !smoke }
   });
   // 页面没有外链导航权限，所有资源仅来自应用包。
   window.webContents.on('will-navigate', event => event.preventDefault());
@@ -151,21 +151,55 @@ async function runSmoke() {
     return {rendered: !!document.querySelector('#income'), sandboxed: typeof require === 'undefined', saved: saved.ok, rejected: !invalid.ok, theme: after.settings.theme, privacy: after.settings.privacy};
   })()`);
   const widgetMode = await widget.webContents.executeJavaScript(`document.body.dataset.mode`);
-  if (!result.rendered || !result.sandboxed || !result.saved || !result.rejected || result.theme !== 'midnight' || !result.privacy || widgetMode !== 'widget') throw new Error('Electron smoke failed');
+  if (!result.rendered || !result.sandboxed || !result.saved || !result.rejected || result.theme !== 'wick' || !result.privacy || widgetMode !== 'widget') throw new Error('Electron smoke failed');
+  // 使用真实主题控件检查保存、双窗同步及未提交表单不被主题切换覆盖。
+  for (const theme of ['lumen', 'folio', 'wick']) {
+    await dashboard.webContents.executeJavaScript(`(() => {
+      document.querySelector('[name="salary"]').value = '23456';
+      const picker = document.querySelector('#quick-theme');
+      picker.value = '${theme}'; picker.dispatchEvent(new Event('change', {bubbles: true}));
+    })()`);
+    for (let attempt = 0; attempt < 50; attempt++) {
+      if (await dashboard.webContents.executeJavaScript(`!document.querySelector('#quick-theme').disabled && document.body.dataset.theme === '${theme}'`)) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    const mainOK = await dashboard.webContents.executeJavaScript(`document.body.dataset.theme === '${theme}' && document.querySelector('[name="salary"]').value === '23456'`);
+    const widgetOK = await widget.webContents.executeJavaScript(`document.body.dataset.theme === '${theme}'`);
+    if (!mainOK || !widgetOK || JSON.parse(fs.readFileSync(storePath)).theme !== theme) throw new Error('Theme synchronization failed: ' + theme);
+  }
   if (process.env.PAYRISE_SMOKE_OUTPUT) {
     clearInterval(heartbeat);
     fs.mkdirSync(process.env.PAYRISE_SMOKE_OUTPUT, { recursive: true });
-    for (const theme of ['dawn', 'midnight', 'paper']) {
+    for (const theme of ['lumen', 'folio', 'wick']) {
       persist({ ...settings, theme, privacy: false, goalStart: '2026-11-18' });
       const demo = { settings, snapshot: core.snapshot(settings, new Date('2026-11-19T14:16:30')), warning: '' };
       for (const window of [dashboard, widget]) window.webContents.send('state:update', demo);
       // 等待 Chromium 提交一次绘制后捕获真实窗口，用示例工资避免隐私泄漏。
-      await new Promise(resolve => setTimeout(resolve, 150));
+      await Promise.all([dashboard, widget].map(window => window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)));
+      const renderedTheme = await dashboard.webContents.executeJavaScript(`document.body.dataset.theme`);
+      if (renderedTheme !== theme) throw new Error('Theme paint mismatch');
       fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}.png`), (await dashboard.webContents.capturePage()).toPNG());
-      if (theme === 'dawn') fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, 'widget.png'), (await widget.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}-widget.png`), (await widget.webContents.capturePage()).toPNG());
+      // 最小窗口下覆盖最大金额、长目标名和所有班次状态，检查横向溢出。
+      dashboard.setSize(800, 640);
+      for (const status of ['before', 'earning', 'break', 'after', 'off']) {
+        const edge = { ...demo, settings: { ...settings, goalName: '愿望名称'.repeat(15) }, snapshot: { ...demo.snapshot, status, today: 100000000, goalEarned: 100000000, monthEarned: 100000000 } };
+        for (const window of [dashboard, widget]) window.webContents.send('state:update', edge);
+        await Promise.all([dashboard, widget].map(window => window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)));
+        for (const window of [dashboard, widget]) {
+          const fits = await window.webContents.executeJavaScript(`(() => {
+            const amount = document.querySelector(document.body.dataset.mode === 'widget' ? '#widget-income' : '#income');
+            return document.documentElement.scrollWidth <= innerWidth && amount.scrollWidth <= amount.clientWidth + 1 && document.body.dataset.status === '${status}';
+          })()`);
+          if (!fits) throw new Error('Theme overflow: ' + theme + '/' + status);
+        }
+      }
+      fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}-small.png`), (await dashboard.webContents.capturePage()).toPNG());
+      fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}-large-widget.png`), (await widget.webContents.capturePage()).toPNG());
+      dashboard.setSize(1080, 800);
     }
     perform('privacy');
-    await new Promise(resolve => setTimeout(resolve, 150));
+    await Promise.all([dashboard, widget].map(window => window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)));
     const masked = await dashboard.webContents.executeJavaScript(`document.querySelector('#income').textContent === '••••' && document.querySelector('#settings').hidden`);
     const widgetMasked = await widget.webContents.executeJavaScript(`document.querySelector('#widget-income').textContent === '••••'`);
     if (!masked || !widgetMasked) throw new Error('Privacy render failed');
