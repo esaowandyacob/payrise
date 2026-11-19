@@ -43,7 +43,7 @@ export function validateSettings(input) {
   if (!['calendar', 'fixed'].includes(s.divisor)) throw new Error('折算方式无效');
   // 兼容首版主题名称，迁移只改变主题标识，不改变薪资或排班。
   s.theme = ({ dawn: 'lumen', midnight: 'wick', paper: 'folio' })[s.theme] ?? s.theme;
-  if (!['lumen', 'folio', 'wick'].includes(s.theme)) throw new Error('主题无效');
+  if (!['lumen', 'folio', 'wick', 'doraemon'].includes(s.theme)) throw new Error('主题无效');
   for (const key of ['breakEnabled', 'privacy', 'pinned']) if (typeof s[key] !== 'boolean') throw new Error(`${key} 应为布尔值`);
   if (!Array.isArray(s.weekdays) || !s.weekdays.length || s.weekdays.some(n => !Number.isInteger(n) || n < 0 || n > 6)) throw new Error('至少选择一个工作日');
   s.weekdays = [...new Set(s.weekdays)].sort();

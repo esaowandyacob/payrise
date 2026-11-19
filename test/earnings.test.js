@@ -80,3 +80,10 @@ test('主题迁移保留工资与排班，新主题不改变计薪结果', () =>
     assert.equal(config({theme}).theme, theme);
   }
 });
+
+test('哆啦A梦主题保持计薪快照一致', () => {
+  const now = new Date('2026-11-19T19:00:00');
+  const base = config();
+  assert.equal(config({theme:'doraemon'}).theme,'doraemon');
+  assert.deepEqual(snapshot({...base,theme:'doraemon'},now),snapshot(base,now));
+});

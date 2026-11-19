@@ -74,10 +74,11 @@ function showDashboard() {
   dashboard.show(); dashboard.focus();
 }
 
-// 为菜单栏创建模板图标，自动适配系统深浅色。
+// 菜单栏使用薪光原图的 16 点版本，@2x 资源保持 Retina 清晰度。
 function createTray() {
-  const icon = nativeImage.createFromPath(path.join(__dirname, '../assets/trayTemplate.png'));
-  icon.setTemplateImage(true);
+  const icon = nativeImage.createFromPath(path.join(__dirname, '../assets/trayBrand.png'));
+  if (smoke && (icon.isEmpty() || icon.getSize().width !== 16 || icon.getSize().height !== 16)) throw new Error('菜单栏图标应为 16 点薪光图标');
+  icon.setTemplateImage(false);
   tray = new Tray(icon);
   tray.setToolTip('Payrise · 薪光');
   tray.on('click', showDashboard);
@@ -165,7 +166,7 @@ async function runSmoke() {
   const widgetMode = await widget.webContents.executeJavaScript(`document.body.dataset.mode`);
   if (!result.rendered || !result.sandboxed || !result.saved || !result.rejected || result.theme !== 'wick' || !result.privacy || widgetMode !== 'widget') throw new Error('Electron smoke failed');
   // 使用真实主题控件检查保存、双窗同步及未提交表单不被主题切换覆盖。
-  for (const theme of ['lumen', 'folio', 'wick']) {
+  for (const theme of ['lumen', 'folio', 'wick', 'doraemon']) {
     await dashboard.webContents.executeJavaScript(`(() => {
       document.querySelector('[name="salary"]').value = '23456';
       const picker = document.querySelector('#quick-theme');
@@ -178,6 +179,11 @@ async function runSmoke() {
     const mainOK = await dashboard.webContents.executeJavaScript(`document.body.dataset.theme === '${theme}' && document.querySelector('[name="salary"]').value === '23456'`);
     const widgetOK = await widget.webContents.executeJavaScript(`document.body.dataset.theme === '${theme}'`);
     if (!mainOK || !widgetOK || JSON.parse(fs.readFileSync(storePath)).theme !== theme) throw new Error('Theme synchronization failed: ' + theme);
+    const brandOK = await widget.webContents.executeJavaScript(`(() => {
+      const icon=document.querySelector('.widget-brand .brand-icon');
+      return icon.complete && icon.naturalWidth > 0 && icon.getBoundingClientRect().width === 16 && icon.getBoundingClientRect().height === 16;
+    })()`);
+    if (!brandOK) throw new Error('小窗品牌图标未加载或尺寸错误');
   }
   // 使用实际按钮和补录表单验证账本流程，所有日期均来自隔离测试时钟附近。
   const overtimeOK = await dashboard.webContents.executeJavaScript(`(async () => {
@@ -237,7 +243,7 @@ async function runSmoke() {
   if (process.env.PAYRISE_SMOKE_OUTPUT) {
     clearInterval(heartbeat);
     fs.mkdirSync(process.env.PAYRISE_SMOKE_OUTPUT, { recursive: true });
-    for (const theme of ['lumen', 'folio', 'wick']) {
+    for (const theme of ['lumen', 'folio', 'wick', 'doraemon']) {
       const past = core.changeOvertime({...settings,overtimeRecords:[]},'add',{id:'history-demo',start:new Date('2026-11-18T18:00:00').getTime(),end:new Date('2026-11-18T20:00:00').getTime(),mode:'unpaid'},new Date('2026-11-19T18:00:00').getTime());
       const fixture = core.changeOvertime({...past,overtimeMode:'hourly'},'start',{id:'demo'},new Date('2026-11-19T18:00:00').getTime());
       persist({ ...fixture, theme, privacy: false, goalStart: '2026-11-18' });
@@ -247,6 +253,7 @@ async function runSmoke() {
       await Promise.all([dashboard, widget].map(window => window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)));
       const renderedTheme = await dashboard.webContents.executeJavaScript(`document.body.dataset.theme`);
       if (renderedTheme !== theme) throw new Error('Theme paint mismatch');
+      if (theme === 'doraemon' && !await dashboard.webContents.executeJavaScript(`document.querySelector('.dora-art img').complete && document.querySelector('.dora-art img').naturalWidth > 0`)) throw new Error('角色插画未加载');
       fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}.png`), (await dashboard.webContents.capturePage()).toPNG());
       fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}-widget.png`), (await widget.webContents.capturePage()).toPNG());
       await dashboard.webContents.executeJavaScript(`(() => {document.querySelector('#overtime-details').open=true;document.querySelector('#overtime-details').scrollIntoView();})()`);
