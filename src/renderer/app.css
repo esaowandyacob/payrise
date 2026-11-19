@@ -48,6 +48,12 @@ input[type=checkbox]{width:auto;accent-color:var(--accent)}input[type=range]{acc
 .form-actions{display:flex;align-items:center;gap:8px;margin-top:20px}#form-message{flex:1;color:var(--accent);font-size:12px;overflow-wrap:anywhere}
 .primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
 .warning{border-left:2px solid var(--accent);padding:8px 12px;margin-bottom:12px;background:var(--surface);font-size:13px}
+.overtime{border-top:1px solid var(--line);margin-top:22px;padding-top:16px}
+.overtime-head{display:flex;align-items:center;justify-content:space-between;gap:20px}.overtime-head>div{min-width:0}.overtime-head button{flex-shrink:0}
+.overtime h2{font-size:14px;font-weight:560;margin:0 0 6px}.overtime p{font-size:12px;overflow-wrap:anywhere}
+.overtime details{margin-top:12px}.overtime form{margin:16px 0}.overtime-history{max-height:300px;overflow:auto}
+.overtime-row{display:flex;align-items:center;gap:12px;border-top:1px solid var(--line);padding:10px 0;font-size:12px}.overtime-row>span{flex:1;min-width:0;overflow-wrap:anywhere}
+#overtime-message{color:var(--accent)}[data-status=overtime-unpaid] .status:before,[data-status=overtime-limit] .status:before{background:transparent;box-shadow:inset 0 0 0 1.5px var(--accent)}
 /* 纸页：暖色桌面上的一页账，细线分行，数字右对齐。 */
 [data-theme=folio] main{padding:0 22px 22px}
 [data-theme=folio] .dashboard{background:var(--surface);padding:22px 42px 18px;min-height:calc(100vh - 80px);box-shadow:0 1px 0 #fff8 inset}

@@ -4,7 +4,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
 const userData = fs.mkdtempSync(path.join(os.tmpdir(), 'payrise-smoke-'));
-const result = spawnSync(electron, ['.', '--smoke-test'], { cwd: path.join(__dirname, '..'), encoding: 'utf8', timeout: 45000, env: { ...process.env, ELECTRON_RUN_AS_NODE: '', PAYRISE_SMOKE_USER_DATA: userData } });
+// 完整截图矩阵比基础检查更慢，单独给绘制与截图留出时间，仍保持有限超时。
+const result = spawnSync(electron, ['.', '--smoke-test'], { cwd: path.join(__dirname, '..'), encoding: 'utf8', timeout: process.env.PAYRISE_SMOKE_OUTPUT ? 120000 : 45000, env: { ...process.env, ELECTRON_RUN_AS_NODE: '', PAYRISE_SMOKE_USER_DATA: userData } });
 process.stdout.write(result.stdout || '');
 process.stderr.write(result.stderr || '');
 if (result.error) console.error(result.error.message);

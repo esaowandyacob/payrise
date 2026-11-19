@@ -2,6 +2,7 @@ const { app, BrowserWindow, Tray, Menu, nativeImage, ipcMain, dialog, screen } =
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { randomUUID } = require('node:crypto');
 const { pathToFileURL } = require('node:url');
 let core, settings, tray, dashboard, widget, quitting = false, warning = '', storePath, heartbeat;
 const smoke = process.argv.includes('--smoke-test');
@@ -126,13 +127,24 @@ function registerIPC() {
     assertSender(event);
     try {
       // 表单不能伪造休息计时，计时字段由主进程维护。
-      persist({ ...input, restStart: settings.restStart, restEnd: settings.restEnd });
+      persist({ ...input, restStart: settings.restStart, restEnd: settings.restEnd, overtimeRecords: settings.overtimeRecords });
       warning = '';
       widget.setAlwaysOnTop(settings.pinned); widget.setOpacity(settings.opacity);
       broadcast(); return { ok: true, state: state() };
     } catch (error) { return { ok: false, error: error.message }; }
   });
   ipcMain.handle('app:action', (event, action) => { assertSender(event); return perform(action); });
+  // 加班记录只由专用接口更改，标识和当前时间均由主进程产生。
+  ipcMain.handle('overtime:change', (event, command, input = {}) => {
+    assertSender(event);
+    try {
+      if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('加班操作格式无效');
+      const payload = {...input};
+      if (command === 'start' || command === 'add') payload.id = randomUUID();
+      persist(core.changeOvertime(settings, command, payload));
+      broadcast(); return {ok:true,state:state()};
+    } catch (error) { return {ok:false,error:error.message}; }
+  });
 }
 
 // 在隔离配置目录中验证真实 Electron 页面、IPC 和主题，不读取真实工资。
@@ -167,12 +179,69 @@ async function runSmoke() {
     const widgetOK = await widget.webContents.executeJavaScript(`document.body.dataset.theme === '${theme}'`);
     if (!mainOK || !widgetOK || JSON.parse(fs.readFileSync(storePath)).theme !== theme) throw new Error('Theme synchronization failed: ' + theme);
   }
+  // 使用实际按钮和补录表单验证账本流程，所有日期均来自隔离测试时钟附近。
+  const overtimeOK = await dashboard.webContents.executeJavaScript(`(async () => {
+    const initial = (await window.payrise.getState()).settings;
+    const overrides = {};
+    for (let offset=-5; offset<=2; offset++) {
+      const d=new Date();d.setDate(d.getDate()+offset);
+      overrides[d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')]=false;
+    }
+    // 等待真实界面收到主进程广播，而非假设 IPC 返回即完成渲染。
+    async function until(check) {
+      for(let i=0;i<100;i++){if(await check())return;await new Promise(r=>setTimeout(r,30));}
+      throw new Error('Overtime UI timed out: '+document.querySelector('#overtime-message').textContent);
+    }
+    // 本地日期输入保持秒精度。
+    function local(t){const d=new Date(t);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,19);}
+    let result=await window.payrise.saveSettings({...initial,privacy:false,overrides,overtimeMode:'hourly',overtimeHourly:120});
+    if(!result.ok)throw new Error(result.error);
+    document.querySelector('#overtime-toggle').click();
+    await until(async()=>!!(await window.payrise.getState()).snapshot.overtimeActive && !document.querySelector('#overtime-toggle').disabled);
+    await new Promise(r=>setTimeout(r,80));
+    document.querySelector('#overtime-toggle').click();
+    await until(async()=>!(await window.payrise.getState()).snapshot.overtimeActive && !document.querySelector('#overtime-toggle').disabled);
+    const f=document.querySelector('#overtime-form');
+    const start=Date.now()-3*86400000;
+    f.elements.start.value=local(start);f.elements.end.value=local(start+3600000);
+    f.elements.mode.value='hourly';f.elements.hourly.value='80';
+    f.requestSubmit();
+    await until(async()=>(await window.payrise.getState()).settings.overtimeRecords.length===2 && !document.querySelector('#overtime-toggle').disabled);
+    let state=await window.payrise.getState();
+    const record=state.settings.overtimeRecords.find(r=>r.rate===80);
+    document.querySelector('button[data-action="edit"][data-id="'+record.id+'"]').click();
+    f.elements.end.value=local(record.start+7200000);f.requestSubmit();
+    await until(async()=>(await window.payrise.getState()).settings.overtimeRecords.find(r=>r.id===record.id).end-record.start===7200000 && !document.querySelector('#overtime-toggle').disabled);
+    result=await window.payrise.saveSettings({...state.settings,overtimeRecords:[]});
+    if(!result.ok || result.state.settings.overtimeRecords.length!==2)throw new Error('Stale settings overwrote overtime ledger');
+    const future=await window.payrise.overtime('add',{start:Date.now()+3600000,end:Date.now()+7200000});
+    if(future.ok)throw new Error('Future overtime accepted');
+    const currency=await window.payrise.saveSettings({...state.settings,currency:'USD'});
+    if(currency.ok)throw new Error('Currency switch accepted with ledger');
+    await window.payrise.action('privacy');
+    await until(()=>document.querySelector('#overtime-details').hidden && document.querySelector('#overtime-breakdown').textContent.includes('••••'));
+    const diskState=await window.payrise.getState();
+    return {ok:true,ids:diskState.settings.overtimeRecords.map(r=>r.id)};
+  })()`);
+  if (!overtimeOK.ok || JSON.parse(fs.readFileSync(storePath)).overtimeRecords.length !== 2) throw new Error('Overtime persistence failed');
+  loadSettings();
+  if (settings.overtimeRecords.length !== 2) throw new Error('Overtime reload failed');
+  await widget.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+  if (!await widget.webContents.executeJavaScript(`document.body.dataset.private === 'true' && document.querySelector('#widget-income').textContent === '••••'`)) throw new Error('Overtime widget privacy failed');
+  for (const id of overtimeOK.ids) {
+    const deleted = await dashboard.webContents.executeJavaScript(`window.payrise.overtime('delete', {id:${JSON.stringify(id)}})`);
+    if (!deleted.ok) throw new Error('Overtime delete failed');
+  }
+  persist({...core.DEFAULT_SETTINGS,goalStart:core.dateKey(new Date()),theme:'wick',privacy:true});
+  broadcast();
   if (process.env.PAYRISE_SMOKE_OUTPUT) {
     clearInterval(heartbeat);
     fs.mkdirSync(process.env.PAYRISE_SMOKE_OUTPUT, { recursive: true });
     for (const theme of ['lumen', 'folio', 'wick']) {
-      persist({ ...settings, theme, privacy: false, goalStart: '2026-11-18' });
-      const demo = { settings, snapshot: core.snapshot(settings, new Date('2026-11-19T14:16:30')), warning: '' };
+      const past = core.changeOvertime({...settings,overtimeRecords:[]},'add',{id:'history-demo',start:new Date('2026-11-18T18:00:00').getTime(),end:new Date('2026-11-18T20:00:00').getTime(),mode:'unpaid'},new Date('2026-11-19T18:00:00').getTime());
+      const fixture = core.changeOvertime({...past,overtimeMode:'hourly'},'start',{id:'demo'},new Date('2026-11-19T18:00:00').getTime());
+      persist({ ...fixture, theme, privacy: false, goalStart: '2026-11-18' });
+      const demo = { settings, snapshot: core.snapshot(settings, new Date('2026-11-19T19:16:30')), warning: '' };
       for (const window of [dashboard, widget]) window.webContents.send('state:update', demo);
       // 等待 Chromium 提交一次绘制后捕获真实窗口，用示例工资避免隐私泄漏。
       await Promise.all([dashboard, widget].map(window => window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)));
@@ -180,9 +249,14 @@ async function runSmoke() {
       if (renderedTheme !== theme) throw new Error('Theme paint mismatch');
       fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}.png`), (await dashboard.webContents.capturePage()).toPNG());
       fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}-widget.png`), (await widget.webContents.capturePage()).toPNG());
+      await dashboard.webContents.executeJavaScript(`(() => {document.querySelector('#overtime-details').open=true;document.querySelector('#overtime-details').scrollIntoView();})()`);
+      await dashboard.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`);
+      if (!await dashboard.webContents.executeJavaScript(`document.querySelectorAll('#overtime-history .overtime-row').length === 2 && document.documentElement.scrollWidth <= innerWidth`)) throw new Error('Overtime history rendering failed');
+      fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, `${theme}-history.png`), (await dashboard.webContents.capturePage()).toPNG());
+      await dashboard.webContents.executeJavaScript(`(() => {document.querySelector('#overtime-details').open=false;window.scrollTo(0,0);})()`);
       // 最小窗口下覆盖最大金额、长目标名和所有班次状态，检查横向溢出。
       dashboard.setSize(800, 640);
-      for (const status of ['before', 'earning', 'break', 'after', 'off']) {
+      for (const status of ['before', 'earning', 'break', 'after', 'off', 'overtime-paid', 'overtime-unpaid', 'overtime-limit']) {
         const edge = { ...demo, settings: { ...settings, goalName: '愿望名称'.repeat(15) }, snapshot: { ...demo.snapshot, status, today: 100000000, goalEarned: 100000000, monthEarned: 100000000 } };
         for (const window of [dashboard, widget]) window.webContents.send('state:update', edge);
         await Promise.all([dashboard, widget].map(window => window.webContents.executeJavaScript(`new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))`)));
@@ -205,7 +279,7 @@ async function runSmoke() {
     if (!masked || !widgetMasked) throw new Error('Privacy render failed');
     fs.writeFileSync(path.join(process.env.PAYRISE_SMOKE_OUTPUT, 'privacy.png'), (await dashboard.webContents.capturePage()).toPNG());
   }
-  console.log('PAYRISE_SMOKE_OK ' + JSON.stringify({ ...result, widgetMode }));
+  console.log('PAYRISE_SMOKE_OK ' + JSON.stringify({ ...result, widgetMode, overtime: overtimeOK.ok }));
 }
 
 // 初始化应用；macOS 关闭所有窗口后仍保留菜单栏。

@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('payrise', Object.freeze({
   getState: () => ipcRenderer.invoke('state:get'),
   saveSettings: settings => ipcRenderer.invoke('settings:save', settings),
   action: action => ipcRenderer.invoke('app:action', action),
+  // 仅开放受校验的加班账本操作，不向页面提供任意文件写入能力。
+  overtime: (command, input) => ipcRenderer.invoke('overtime:change', command, input),
   onState: callback => {
     // 过滤 Electron 事件对象，仅传递经过主进程生成的数据。
     const listener = (_event, state) => callback(state);

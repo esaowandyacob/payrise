@@ -18,7 +18,9 @@ scripts/smoke.cjs         隔离配置启动真实 Electron
 
 `window.payrise.getState()` → `{settings, snapshot, warning}`。
 
-`window.payrise.saveSettings(settings)` → `{ok:true,state}` 或 `{ok:false,error}`。主进程再校验字段、范围、日期和休息区间；休息计时字段不可由设置表单覆盖。
+`window.payrise.saveSettings(settings)` → `{ok:true,state}` 或 `{ok:false,error}`。主进程再校验字段、范围、日期和休息区间；休息计时和加班记录字段不可由设置表单覆盖。
+
+`window.payrise.overtime(command, payload)` → `{ok:true,state}` 或 `{ok:false,error}`；命令为 `start | stop | add | update | delete`。开始和补录的 ID 由主进程生成；开始/停止使用主进程时钟。补录传 `start/end/mode/hourly/multiplier`；更新只修改时间并保留费率；停止、更新、删除带 `id`。
 
 `window.payrise.action(action)` 接受 `dashboard | widget | privacy | rest`。
 
@@ -30,7 +32,9 @@ scripts/smoke.cjs         隔离配置启动真实 Electron
 
 单个版本化 settings.json；原子写入；损坏文件备份。保存时采用字段白名单，未来新增字段需同时更新默认值、校验、表单和测试。
 
-当前无数据库。跨日期历史按当前配置推算；未来需要历史薪资时，应新增生效日期版本，而不是把现在的估算当成历史记录。
+当前无数据库。配置版本 2 在同一文件存储加班账本（id、start、end、limit、day、rate、currency、mode），默认从旧版本迁移为空账本。`changeOvertime` 统一处理变更，`validateOvertimeRecords` 拒绝重叠及币种混用。
+
+普通收入跨日期历史按当前配置推算；未来需要历史薪资时，应新增生效日期版本，而不是把现在的估算当成历史记录。
 
 ## 性能
 

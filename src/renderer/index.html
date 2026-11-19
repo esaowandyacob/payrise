@@ -25,8 +25,24 @@
         <section class="fact"><span class="subtle">本班次预计</span><strong id="target">—</strong><small id="days">—</small></section>
         <section class="fact goal"><span class="subtle">愿望进度</span><strong id="goal-value">—</strong><h2 id="goal-name">给自己一份奖励</h2><progress id="goal-progress" max="1" value="0" aria-label="愿望进度"></progress><small>初始积蓄 + 目标开始日起估算收入；不代表实际存款。</small></section>
       </div>
+      <section class="overtime" aria-label="加班记录">
+        <div class="overtime-head"><div><h2>加班 · 时间也要被看见</h2><p id="overtime-summary" class="subtle">尚未记录</p><p id="overtime-breakdown" class="subtle"></p></div><button id="overtime-toggle" type="button">开始加班</button></div>
+        <p id="overtime-live" class="subtle"></p><p id="overtime-message" role="status"></p>
+        <details id="overtime-details"><summary>补录与历史记录 <span class="expand-label">展开 / 收起</span></summary>
+          <p class="subtle">使用本机时区。跨午夜请填写次日结束日期；单次最多 24 小时，不能覆盖正常计薪时段。编辑保留原费率。</p>
+          <form id="overtime-form"><div class="fields">
+            <input name="id" type="hidden">
+            <label>开始时间<input name="start" type="datetime-local" step="1" required></label>
+            <label>结束时间<input name="end" type="datetime-local" step="1" required></label>
+            <label>计薪方式<select name="mode"><option value="unpaid">无加班费</option><option value="hourly">自定义时薪</option><option value="multiplier">正常时薪 × 倍率</option></select></label>
+            <label>加班时薪<input name="hourly" type="number" min="0.01" max="100000000" step="any" value="100" required></label>
+            <label>加班倍率<input name="multiplier" type="number" min="0.01" max="100" step="any" value="1.5" required></label>
+          </div><div class="form-actions"><button id="overtime-save" type="submit">补录加班</button><button id="overtime-reset" type="button">取消编辑 / 重置</button></div></form>
+          <div id="overtime-history" class="overtime-history" aria-label="加班历史"></div>
+        </details>
+      </section>
       <section class="rest"><div><span class="subtle">给自己一杯咖啡 · 手动休息计时</span><strong id="rest-value">—</strong><small id="rest-time">尚未开始</small></div><button id="rest" type="button">开始休息</button></section>
-      <p class="footnote">这是时间价值估算，不是工资条。未计算税费、奖金与加班费。配置调整会重算历史估算值。</p>
+      <p class="footnote">这是时间价值估算，不是工资条。未计算税费与奖金。普通收入按当前排班重算；加班费按记录费率估算，不代表实际到账。</p>
       <details class="card settings" id="settings"><summary>薪资、作息与外观设置 <span class="expand-label">展开 / 收起</span></summary>
         <form id="settings-form">
           <fieldset><legend>收入与排班</legend><div class="fields">
@@ -41,6 +57,11 @@
           </div><div class="weekdays" role="group" aria-label="每周工作日"><label><input name="weekdays" type="checkbox" value="1">周一</label><label><input name="weekdays" type="checkbox" value="2">周二</label><label><input name="weekdays" type="checkbox" value="3">周三</label><label><input name="weekdays" type="checkbox" value="4">周四</label><label><input name="weekdays" type="checkbox" value="5">周五</label><label><input name="weekdays" type="checkbox" value="6">周六</label><label><input name="weekdays" type="checkbox" value="0">周日</label></div>
           <label>手动调休（每行一项：2026-11-21=work 或 2026-11-23=off）<textarea name="overrides" rows="3" placeholder="法定节假日与调休需手动填写，不联网获取"></textarea></label>
           <p class="subtle">下班早于上班视为跨午夜班次，归属上班日期。固定天数模式的月累计不保证等于月薪。</p></fieldset>
+          <fieldset><legend>加班默认计薪</legend><div class="fields">
+            <label>计薪方式<select name="overtimeMode"><option value="unpaid">无加班费</option><option value="hourly">自定义时薪</option><option value="multiplier">正常时薪 × 倍率</option></select></label>
+            <label>自定义时薪<input name="overtimeHourly" type="number" min="0.01" max="100000000" step="any" required></label>
+            <label>正常时薪倍率<input name="overtimeMultiplier" type="number" min="0.01" max="100" step="any" required></label>
+          </div><p class="subtle">先保存，再开始计时。无偿加班仅累计时间；倍率由你自行设定。已有记录时不能切换币种。</p></fieldset>
           <fieldset><legend>愿望清单</legend><div class="fields"><label>目标名称<input name="goalName" maxlength="60" required></label><label>目标金额<input name="goalAmount" type="number" min="0.01" max="100000000" step="0.01" required></label><label>初始积蓄<input name="goalSaved" type="number" min="0" max="100000000" step="0.01" required></label><label>开始日期<input name="goalStart" type="date" required></label></div></fieldset>
           <fieldset><legend>外观</legend><div class="fields"><label>界面主题<select name="theme"><option value="lumen">窗光 · Lumen</option><option value="folio">纸页 · Folio</option><option value="wick">夜灯 · Wick</option></select></label><label>悬浮窗透明度<input name="opacity" type="range" min="0.5" max="1" step="0.05"></label><label class="check"><input name="pinned" type="checkbox">悬浮窗始终置顶</label></div><p class="subtle">三套主题同步应用到主窗口与悬浮窗。顶部主题选择立即保存，其余设置按保存按钮生效。</p></fieldset>
           <div class="form-actions"><p id="form-message" role="status"></p><button type="button" id="cancel">恢复已保存设置</button><button class="primary" type="submit">保存设置</button></div>

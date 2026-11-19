@@ -1,10 +1,11 @@
 export const DEFAULT_SETTINGS = Object.freeze({
-  version: 1, salary: 12000, salaryMode: 'monthly', currency: 'CNY',
+  version: 2, salary: 12000, salaryMode: 'monthly', currency: 'CNY',
   start: '09:00', end: '18:00', breakEnabled: true, breakStart: '12:00', breakEnd: '13:00',
   weekdays: [1, 2, 3, 4, 5], overrides: {}, divisor: 'calendar', fixedDays: 21.75,
   theme: 'lumen', privacy: false, pinned: true, opacity: 1,
   goalName: '给自己一份奖励', goalAmount: 3000, goalSaved: 0,
-  goalStart: '', restStart: null, restEnd: null
+  goalStart: '', restStart: null, restEnd: null,
+  overtimeMode: 'unpaid', overtimeHourly: 100, overtimeMultiplier: 1.5, overtimeRecords: []
 });
 
 // 把本地日历日期转为无时区偏移的日期键。
@@ -65,8 +66,120 @@ export function validateSettings(input) {
   if (s.goalStart && !validDateKey(s.goalStart)) throw new Error('目标开始日期无效');
   for (const key of ['restStart', 'restEnd']) if (s[key] !== null && (typeof s[key] !== 'number' || !Number.isFinite(s[key]) || s[key] < 0 || s[key] > 4133980800000)) throw new Error('休息计时无效');
   if (s.restEnd !== null && (s.restStart === null || s.restEnd < s.restStart)) throw new Error('休息结束时间无效');
-  s.version = 1;
+  if (!['unpaid', 'hourly', 'multiplier'].includes(s.overtimeMode)) throw new Error('加班计薪方式无效');
+  if (!Number.isFinite(s.overtimeHourly) || s.overtimeHourly <= 0 || s.overtimeHourly > 100000000) throw new Error('加班时薪应大于 0 且不超过 1 亿');
+  if (!Number.isFinite(s.overtimeMultiplier) || s.overtimeMultiplier <= 0 || s.overtimeMultiplier > 100) throw new Error('加班倍率应大于 0 且不超过 100');
+  s.overtimeRecords = validateOvertimeRecords(s.overtimeRecords, s);
+  s.version = 2;
   return s;
+}
+
+// 验证加班账本的边界、费率快照与互斥区间，禁止记录重复和普通计薪重叠。
+export function validateOvertimeRecords(records, s) {
+  if (!Array.isArray(records) || records.length > 1000) throw new Error('加班记录最多保留 1000 条');
+  const ids = new Set();
+  let active = 0;
+  const normalized = records.map(record => {
+    if (!record || typeof record !== 'object') throw new Error('加班记录格式无效');
+    const { id, start, end, limit, day, rate, currency, mode } = record;
+    if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,80}$/.test(id) || ids.has(id)) throw new Error('加班记录标识无效或重复');
+    ids.add(id);
+    if (!Number.isFinite(start) || start < 946684800000 || start > 4102444800000 || !Number.isFinite(limit) || limit <= start || limit - start > 86400000) throw new Error('单次加班时间须在 24 小时以内');
+    if (end !== null && (!Number.isFinite(end) || end <= start || end > limit)) throw new Error('加班结束时间必须晚于开始且在上限内');
+    if (end === null && ++active > 1) throw new Error('只能同时进行一次加班');
+    if (currency !== s.currency) throw new Error('已有加班记录时不能切换币种，请先保留账本备份并处理原记录');
+    if (!validDateKey(day) || !['unpaid','hourly','multiplier'].includes(mode) || !Number.isFinite(rate) || rate < 0 || rate > 10000000000 || (mode === 'unpaid' ? rate !== 0 : rate <= 0)) throw new Error('加班费率或归属日期无效');
+    const from = new Date(start); from.setHours(0,0,0,0); from.setDate(from.getDate()-1);
+    const until = end ?? limit;
+    for (let d = from; d.getTime() <= until; d.setDate(d.getDate()+1)) {
+      for (const [a,b] of shift(d,s).segments) if (overlapSeconds(a,b,start,until) > 0) throw new Error('加班不能与正常计薪时段重叠，请调整时间或排班');
+    }
+    return {id,start,end,limit,day,rate,currency,mode};
+  }).sort((a,b) => a.start-b.start);
+  for (let i=1; i<normalized.length; i++) if (normalized[i].start < (normalized[i-1].end ?? normalized[i-1].limit)) throw new Error('加班记录时间重叠');
+  return normalized;
+}
+
+// 将凌晨的加班关联到刚结束的夜班；其他情况按开始的本地日期归属。
+export function overtimeDay(s, start) {
+  const day = new Date(start); day.setHours(0,0,0,0);
+  const previous = new Date(day); previous.setDate(previous.getDate()-1);
+  const old = shift(previous,s);
+  return dateKey(old.working && old.end > day.getTime() && start >= old.end && start < shift(day,s).start ? previous : day);
+}
+
+// 计算本次费率快照；休息日的倍率仍使用该日期所在月的正常班次单价。
+export function overtimeRate(s, start, mode, hourly, multiplier) {
+  if (mode === 'unpaid') return 0;
+  if (mode === 'hourly') {
+    if (!Number.isFinite(hourly) || hourly <= 0 || hourly > 100000000) throw new Error('请输入有效加班时薪');
+    return hourly;
+  }
+  if (mode !== 'multiplier' || !Number.isFinite(multiplier) || multiplier <= 0 || multiplier > 100) throw new Error('请输入有效加班倍率');
+  const day = new Date(`${overtimeDay(s,start)}T00:00:00`);
+  const nominal = shift(day,s).nominalSeconds;
+  const divisor = s.divisor === 'fixed' ? s.fixedDays : workdayCount(day,s);
+  if (s.salaryMode === 'monthly' && !divisor) throw new Error('本月没有排班工作日，请使用自定义加班时薪');
+  const base = s.salaryMode === 'hourly' ? s.salary : (s.salaryMode === 'monthly' ? s.salary/divisor : s.salary)*3600/nominal;
+  return base*multiplier;
+}
+
+// 创建已锁定费率的加班记录，计时最多延续至下一正常计薪段或 24 小时。
+export function createOvertimeRecord(s, input, now = Date.now()) {
+  const {id,start,end = null} = input;
+  if (!Number.isFinite(start) || start > now || start < 946684800000 || (end !== null && (!Number.isFinite(end) || end > now))) throw new Error('加班时间不能在未来');
+  let limit = start+86400000;
+  const day = new Date(start); day.setHours(0,0,0,0);day.setDate(day.getDate()-1);
+  for (let d=day; d.getTime()<=start+86400000; d.setDate(d.getDate()+1)) {
+    for(const [a,b] of shift(d,s).segments) {
+      if(start>=a && start<b) throw new Error('当前属于正常计薪时段，不能重复开始加班');
+      if(a>=start) limit=Math.min(limit,a);
+    }
+  }
+  const mode=input.mode ?? s.overtimeMode;
+  const record={id,start,end,limit,day:overtimeDay(s,start),rate:overtimeRate(s,start,mode,input.hourly ?? s.overtimeHourly,input.multiplier ?? s.overtimeMultiplier),currency:s.currency,mode};
+  validateOvertimeRecords([...s.overtimeRecords,record],s);
+  return record;
+}
+
+// 截取加班的实际时间交集，未结束记录在安全上限停止增长，保留待确认状态。
+export function overtimeTotals(s, now, from = -Infinity, to = now, day = null, month = null) {
+  let earned=0,seconds=0;
+  for(const r of s.overtimeRecords) {
+    if(day && r.day!==day || month && !r.day.startsWith(month)) continue;
+    const elapsed=overlapSeconds(r.start,Math.min(r.end ?? now,r.limit,now),from,to);
+    seconds+=elapsed; earned+=elapsed*r.rate/3600;
+  }
+  return {earned,seconds};
+}
+
+// 统一处理加班账本操作；编辑只修正时间，保留记录创建时的费率和币种。
+export function changeOvertime(s, command, input = {}, now = Date.now()) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Error('加班操作格式无效');
+  const records = s.overtimeRecords;
+  const active = records.find(record => record.end === null);
+  let next;
+  if (command === 'start' || command === 'add') {
+    if (command === 'start' && active) throw new Error('请先结束当前加班');
+    if (command === 'add' && !Number.isFinite(input.end)) throw new Error('补录必须填写结束时间');
+    const record = createOvertimeRecord(s, command === 'start' ? {...input,start:now,end:null} : input, now);
+    next = [...records,record];
+  } else if (command === 'stop') {
+    if (!active || input.id !== active.id) throw new Error('当前加班已变化，请刷新后重试');
+    const end = Math.min(now,active.limit);
+    next = end <= active.start ? records.filter(record => record.id !== active.id) : records.map(record => record.id === active.id ? {...record,end} : record);
+  } else if (command === 'update' || command === 'delete') {
+    const old = records.find(record => record.id === input.id);
+    if (!old) throw new Error('未找到加班记录');
+    if (old.end === null) throw new Error('请先结束加班再编辑或删除');
+    next = records.filter(record => record.id !== old.id);
+    if (command === 'update') {
+      if (!Number.isFinite(input.end)) throw new Error('请填写结束时间');
+      const updated = createOvertimeRecord({...s,overtimeRecords:next}, {...input,mode:'unpaid'}, now);
+      next.push({...updated,mode:old.mode,rate:old.rate});
+    }
+  } else throw new Error('不支持的加班操作');
+  return validateSettings({...s,overtimeRecords:next});
 }
 
 // 使用本地日历构造时刻，跨日和夏令时由系统时区规则处理。
@@ -139,22 +252,38 @@ export function snapshot(s, now = new Date()) {
   const previous = new Date(day); previous.setDate(previous.getDate() - 1);
   const previousShift = shift(previous, s);
   if (previousShift.working && time < previousShift.end && time >= previousShift.start) day.setDate(day.getDate() - 1);
+  const active = s.overtimeRecords.find(record => record.end === null);
+  const last = s.overtimeRecords.filter(record => record.end !== null && record.end <= time).at(-1);
+  const anchorRecord = active && active.start <= time && time < active.limit ? active :
+    last && dateKey(new Date(last.end)) === dateKey(day) && last.day < dateKey(day) && time < shift(day,s).start ? last : null;
+  if (anchorRecord) {
+    const anchor = new Date(`${anchorRecord.day}T00:00:00`);
+    day.setFullYear(anchor.getFullYear(),anchor.getMonth(),anchor.getDate());
+  }
   const current = shiftEarnings(day, s, -Infinity, time);
   const earning = current.segments.some(([a, b]) => time >= a && time < b);
-  const status = !current.working ? 'off' : time < current.start ? 'before' : time >= current.end ? 'after' : earning ? 'earning' : 'break';
+  const overtimeRunning = active && time >= active.start && time < active.limit;
+  const status = active && time >= active.limit ? 'overtime-limit' : overtimeRunning ? (active.rate === 0 ? 'overtime-unpaid' : 'overtime-paid') : !current.working ? 'off' : time < current.start ? 'before' : time >= current.end ? 'after' : earning ? 'earning' : 'break';
   let monthEarned = 0;
   for (let d = new Date(day.getFullYear(), day.getMonth(), 1); d <= day; d.setDate(d.getDate() + 1)) monthEarned += shiftEarnings(d, s, -Infinity, time).earned;
   const goalFrom = s.goalStart ? new Date(`${s.goalStart}T00:00:00`).getTime() : time;
-  const goalEarned = s.goalSaved + earningsBetween(s, goalFrom, time);
+  const overtime = overtimeTotals(s,time,-Infinity,time,dateKey(day));
+  const monthOvertime = overtimeTotals(s,time,-Infinity,time,null,dateKey(day).slice(0,7));
+  const total = current.earned+overtime.earned;
+  const worked = current.seconds+overtime.seconds;
+  const goalEarned = s.goalSaved + earningsBetween(s, goalFrom, time) + overtimeTotals(s,time,goalFrom,time).earned;
   const restTo = s.restEnd ?? time;
   return {
     timestamp: time, day: dateKey(day), month: dateKey(day).slice(0, 7), status,
-    today: current.earned, monthEarned, dailyTarget: current.target,
-    perSecond: current.rate, activeRate: earning ? current.rate : 0,
+    today: total, regularEarned: current.earned, monthEarned: monthEarned+monthOvertime.earned, dailyTarget: current.target,
+    overtimeEarned: overtime.earned, overtimeSeconds: overtime.seconds, monthOvertimeEarned: monthOvertime.earned,
+    effectiveHourly: worked > 0 ? total/worked*3600 : 0, overtimeActive: active ?? null,
+    overtimeRunningSeconds: active ? Math.max(0,(Math.min(time,active.limit)-active.start)/1000) : 0,
+    perSecond: current.rate, activeRate: overtimeRunning ? active.rate/3600 : earning ? current.rate : 0,
     progress: current.paidSeconds ? current.seconds / current.paidSeconds : 0,
     remainingSeconds: Math.max(0, (current.end - time) / 1000), workdays: workdayCount(day, s),
     goalEarned, goalProgress: Math.min(1, goalEarned / s.goalAmount),
     restSeconds: s.restStart === null ? 0 : Math.max(0, (restTo - s.restStart) / 1000),
-    restEarned: s.restStart === null ? 0 : earningsBetween(s, s.restStart, restTo)
+    restEarned: s.restStart === null ? 0 : earningsBetween(s, s.restStart, restTo) + overtimeTotals(s,time,s.restStart,restTo).earned
   };
 }
